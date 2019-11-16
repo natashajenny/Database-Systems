@@ -1,0 +1,103 @@
+#!/usr/bin/php
+<?php
+
+
+//
+// shortest - takes in two actor names and lists the shortest path up to Six Degrees of Separation between two given actors.
+//
+
+// include the common PHP code file
+require("a2.php");
+
+$usage = "Usage: $argv[0] Actor_A Actor_B";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 3) exit("$usage\n");
+
+// Get the return results
+$a = $argv[1];
+$b = $argv[2];
+
+$q = "select distinct actor_id, name from movie_actor where lower(name)=lower(%s)";
+$actorA = dbNext(dbQuery($db, mkSQL($q, $a)));
+
+$q = "select distinct actor_id, name from movie_actor where lower(name)=lower(%s)";
+$actorB = dbNext(dbQuery($db, mkSQL($q, $b)));
+
+// Find degree between 2 actors
+$q = "with recursive friends as ( select %d as actor_id, 0 as level union select a2.actor_id, level+1 from friends, movie_actor a1, movie_actor a2 where friends.actor_id = a1.actor_id and a1.movie_id = a2.movie_id and friends.level < 6) select min(level) as degree from friends where actor_id = %d group by actor_id";
+$res = dbNext(dbQuery($db, mkSQL($q, $actorA[0], $actorB[0])));
+$conn = array();
+
+if ($res['degree'] < 4) {
+	$r = direct_path($db, $res[0], $a, $b);
+
+	while ($t = dbNext($r)) {
+		$array = preg_split('/_/', $t[0], -1, PREG_SPLIT_NO_EMPTY);
+		array_push($conn, $array);
+	} 
+
+} else {
+	$deg = $res['degree'];
+
+	$r = indirect_path($db, $a, 3);
+
+	while ($t = dbNext($r)){
+		$array = preg_split('/_/', $t[0], -1, PREG_SPLIT_NO_EMPTY);
+		array_push($conn, $array);
+	}
+
+	foreach($conn as $key => $row) {
+		if(empty($row)){
+			unset($conn[$key]);
+		}
+	}
+
+	$z = indirect_path($db, $b, $deg-3);
+	$result = array();
+
+	while ($x = dbNext($z)){
+		$array = preg_split('/_/', $x[0], -1, PREG_SPLIT_NO_EMPTY);
+		$array = array_reverse($array);
+
+		foreach($conn as $c){
+			if ($c[6] == $array[0]){
+				$temp = $array;
+				array_shift($temp);
+				$path = array_merge($c, $temp);
+				array_push($result, $path);
+			}
+		}
+	}
+	$conn = $result;
+
+}
+
+foreach($conn as $key => $row) {
+	$mov[$key] = $row[1];
+}
+
+array_multisort($mov, SORT_ASC, SORT_STRING, $conn);
+
+$num = 1;
+foreach($conn as $c){
+	$i = 0;
+	echo "$num. ";
+	$limit = $res['degree']*2;
+
+	while ($i < $limit){
+		echo "$c[$i] was in ";
+		$i++;
+		echo "$c[$i] with ";
+		$i++;
+		echo "$c[$i]";
+		if ($i != $limit){
+			echo "; ";
+		}
+	}
+	$num++;
+	echo "\n";
+}	
+
+?>

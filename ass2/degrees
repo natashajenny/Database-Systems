@@ -1,0 +1,41 @@
+#!/usr/bin/php
+<?php
+
+
+//
+// degrees - output actors between M and N degrees of separation (1 <= M <= 6)
+//
+
+// include the common PHP code file
+require("a2.php");
+
+
+$usage = "Usage: $argv[0] Actor M N";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 4) exit("$usage\n");
+
+// Get the return results
+$a = $argv[1];
+$m = $argv[2];
+$n = $argv[3];
+
+$q = "select distinct actor_id from movie_actor where lower(name)=lower(%s)";
+$r = dbNext(dbQuery($db, mkSQL($q, $a)));
+
+// query to get all connections <= N for the actor
+$q = "with recursive conn as (select %d as actor_id, %s::varchar as name, 0 as level union select a2.actor_id, a2.name, level+1 from conn, movie_actor a1, movie_actor a2 where conn.actor_id = a1.actor_id and a1.movie_id=a2.movie_id and conn.level < %d ) select actor_id, name, min(level) as degree from conn where actor_id != %d group by actor_id, name order by degree, name";
+
+$res = dbQuery($db, mkSQL($q, $r[0], $a, $n, $r[0]));
+
+// Iterate through the results and print ones >= M
+$i = 1;
+while ($t = dbNext($res)) {
+	if ($t[2] >= $m) {
+		echo "$i. $t[1] ($t[2])\n";
+		$i++;
+	}
+}	
+	
+?>

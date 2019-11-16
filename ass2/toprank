@@ -1,0 +1,87 @@
+#!/usr/bin/php
+<?php
+
+//
+// toprank -- top ranked movies
+//
+
+// include the common PHP code file
+require("a2.php");
+
+
+$usage = "Usage: $argv[0] (Genres) K StartYear EndYear";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments and set variables
+if (count($argv) < 4) exit("$usage\n");
+
+if (count($argv) == 4) {
+	$genres = null;
+	$k = $argv[1];
+	$start = $argv[2];
+	$end = $argv[3];
+	$q = "select title, year, content_rating, lang, imdb_score, votes from movie_stats where year between %d and %d order by imdb_score desc, votes desc limit %d";
+	$r = dbQuery($db, mkSQL($q, $start, $end, $k));
+
+
+	$i = 1;
+	while ($t = dbNext($r)) {
+		echo "$i. $t[0] ("; // 1. Title ()
+		if (!empty($t[1]))
+			echo "$t[1], ";
+		if (!empty($t[2]))
+			echo "$t[2], ";
+		if (!empty($t[3]))
+			echo "$t[3]";
+		echo ") [";
+		if (!empty($t[4]))
+			echo "$t[4], ";
+		if (!empty($t[5]))
+			echo "$t[5]";
+		echo "]\n";
+		$i++;
+	}
+} else if (count($argv) == 5) {
+	$genres = $argv[1];
+	$k = $argv[2];
+	$start = $argv[3];
+	$end = $argv[4];
+	$g = preg_split('/&/', $genres, -1, PREG_SPLIT_NO_EMPTY);
+	// print_r($g);
+	$m = "select movie_id, title, year, content_rating, lang, imdb_score, votes from movie_stats where year between %d and %d order by imdb_score desc, votes desc";
+	$r = dbQuery($db, mkSQL($m, $start, $end));
+
+	$i = 1;
+	$a = array();
+
+	while($t = dbNext($r)) {
+		if ($i <= $k){
+			$n = "select genre from movie_genres where movie_id = %d";
+			$q = dbQuery($db, mkSQL($n, $t[0]));
+
+			while($p = dbNext($q)){
+				array_push($a,$p[0]);
+			}
+
+			if (!array_diff($g, $a)) {
+				echo "$i. $t[1] (";
+				if (!empty($t[2]))
+					echo "$t[2], ";
+				if (!empty($t[3]))
+					echo "$t[3], ";
+				if (!empty($t[4]))
+					echo "$t[4]";
+				echo ") [";
+				if (!empty($t[5]))
+					echo "$t[5], ";
+				if (!empty($t[6]))
+					echo "$t[6]";
+				echo "]\n";
+				$i++;
+			}
+			$a = array();
+		}
+	}
+
+}
+?>

@@ -1,0 +1,41 @@
+#!/usr/bin/php
+<?php
+
+//
+// acting -- lists movies acted by a given actor
+//
+
+// include the common PHP code file
+require("a2.php");
+
+
+$usage = "Usage: $argv[0] Actor";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 2) exit("$usage\n");
+
+// Get the return results
+$val = $argv[1];
+$q = "select title, director, year, content_rating, imdb_score from movie_details where lower(actor) = lower(%s) order by year, title asc";
+$r = dbQuery($db, mkSQL($q, $val));
+
+// Iterate through the results and print
+$i = 1;
+while ($t = dbNext($r)) {
+	echo "$i. $t[0] ";
+	if (!empty($t[1]))
+		echo "-- $t[1] ";
+	if (!empty($t[2]) || !empty($t[3]) || !empty($t[4]))
+		echo "(";
+	 	if (!empty($t[2]))
+			echo "$t[2], ";
+		if (!empty($t[3]))
+			echo "$t[3], ";
+		if (!empty($t[4]))
+			echo "$t[4]";
+	 	echo ")\n";
+ 	$i++;
+}
+
+?>

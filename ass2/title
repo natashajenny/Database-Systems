@@ -1,0 +1,45 @@
+#!/usr/bin/php
+<?php
+
+//
+// title - lists movie information by its title substring
+//
+
+// include the common PHP code file
+require("a2.php");
+
+
+$usage = "Usage: $argv[0] Title";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 2) exit("$usage\n");
+
+// Get the return results
+$val = $argv[1];
+$q = "select title, year,content_rating, imdb_score from movie_stats where lower(title) like lower(%p) order by year asc, imdb_score desc, title asc";
+$r = dbQuery($db, mkSQL($q, $val));
+
+// Iterate through the results and print
+$i = 1;
+while ($t = dbNext($r)) {
+  echo "$i. $t[0] (";
+  if (!empty($t[1]))
+  	echo "$t[1], ";
+  if (!empty($t[2]))
+    echo "$t[2], ";
+  if (!empty($t[3]))
+      echo "$t[3]";
+  echo ") ";
+  $q = "select g.genre from movie_stats m join genre g on m.movie_id = g.movie_id where m.title=%s order by g.genre asc";
+  $d = dbQuery($db, mkSQL($q, $t[0]));
+  $g = dbNext($d);
+  echo "[$g[0]";
+  while ($g = dbNext($d)) {
+  	echo ",$g[0]";
+  }
+  echo "]\n";
+  $i++;
+}
+
+?>

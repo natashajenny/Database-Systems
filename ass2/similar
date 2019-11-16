@@ -1,0 +1,77 @@
+#!/usr/bin/php
+<?php
+
+//
+// similar -- recommend movies with similar genres
+//
+
+// include the common PHP code file
+require("a2.php");
+
+
+$usage = "Usage: $argv[0] Title N";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 3) exit("$usage\n");
+
+// Get the return results
+$title = $argv[1];
+$n = $argv[2];
+
+$q = "select genre from movie m join movie_genres g on (m.id = g.movie_id) where lower(title)=lower(%s)";
+$res = dbQuery($db, mkSQL($q, $title));
+
+$g = array();
+while ($p = dbNext($res)){
+	array_push($g, $p[0]);
+}
+
+$q = "select keyword from movie m join keyword k on (m.id = k.movie_id) where lower(title)=lower(%s)";
+$res = dbQuery($db, mkSQL($q, $title));
+
+$k = array();
+while ($z = dbNext($res)){
+	array_push($k, $z[0]);
+}
+
+// print_r($g); //-- array of genres
+// print_r($k); //-- array of keywords
+
+$q = "select * from genres_keywords where lower(title) != lower(%s)";
+$res = dbQuery($db, mkSQL($q, $title));
+$a = array();
+while ($t = dbNext($res)){
+	$temp = preg_split('/,/', $t[4], -1, PREG_SPLIT_NO_EMPTY);
+	$t[4] = count(array_intersect($g, $temp));
+	$temp = preg_split('/,/', $t[5], -1, PREG_SPLIT_NO_EMPTY);
+	$t[5] = count(array_intersect($k, $temp));
+	array_push($a, $t);
+}
+
+
+foreach($a as $key => $row) {
+	$genre[$key] = $row[4];
+	$keyword[$key] = $row[5];
+	$imdb[$key] = $row[2];
+	$votes[$key] = $row[3];
+}
+
+array_multisort($genre, SORT_DESC, $keyword, SORT_DESC, $imdb, SORT_DESC, $votes, SORT_DESC, $a);
+
+$i = 1;
+foreach($a as $val) {
+	if ($i <= $n) {
+		echo "$i. $val[0] ";
+		if (!empty($val[1]))
+			echo "($val[1]) ";
+		echo "[$val[4], $val[5], ";
+		if (!empty($val[2]))
+			echo "$val[2], ";
+		if (!empty($val[3]))
+			echo "$val[3]";
+		echo "]\n";
+	}
+	$i++;
+}
+?>

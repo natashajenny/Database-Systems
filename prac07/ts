@@ -1,0 +1,73 @@
+#!/srvr/cs3311psql/lib/php525/bin/php
+<?
+require("db.php");
+
+if ($argc < 2 || !is_numeric($argv[1])) exit("Usage: ts SID\n");
+$sid = $argv[1];
+
+$db = dbConnect("dbname=a2");
+
+$qry = <<<xxSQLxx
+select p.id, p.name
+from   Students s, People p
+where  p.unswid = %d and s.id = p.id
+xxSQLxx;
+
+// echo mkSQL($qry,$sid),"\n";
+
+// p.id, p.name in tuple
+$tuple = dbOneTuple($db, mkSQL($qry,$sid));
+if (empty($tuple)) exit("Invalid SID: $sid\n");
+// print_r($tuple); --> 
+// Array
+// (
+//     [0] => id
+//     [id] => id
+//     [1] => name
+//     [name] => name
+// )
+list($pid,$name) = $tuple;
+
+echo "Transcript for $name ($sid)\n\n";
+
+$qry = <<<xxSQLxx
+select s.code, s.name as title, t.year, t.term, e.mark, e.grade, s.uoc
+from   Course_enrolments e
+         join Courses c on (e.course = c.id)
+         join Subjects s on (c.subject = s.id)
+         join Semesters t on (c.semester = t.id)
+where e.student = %d
+order  by t.starting, s.code
+xxSQLxx;
+
+$res = dbQuery($db,mkSQL($qry,$pid));
+if (dbNResults($res) == 0) exit("No courses studied\n");
+
+while ($t = dbNext($res))
+{
+	$sess   = sprintf("%02d%s", $t["year"]%100, strtolower($t["term"]));
+	$course = "$t[code] $t[title]";
+	$out  = sprintf("%4s %-40.40s",$sess,$course);
+	if (is_null($t["mark"]))
+		$out .= sprintf("%5s",".");
+	else
+		$out .= sprintf("%5d",$t["mark"]);
+	if (is_null($t["grade"]))
+		$out .= sprintf("%5s",".");
+	else
+		$out .= sprintf("%5s",$t["grade"]);
+	if (is_null($t["grade"]))
+		$out .= sprintf("%5s",".");
+	elseif (passed($t["grade"]))
+		$out .= sprintf("%5d",$t["uoc"]);
+	else
+		$out .= sprintf("%5d",0);
+	echo "$out\n";
+}
+
+function passed($grade)
+{
+	$passes = array("PS","CR","DN","HD","PC","A","B","C","SY");
+	return in_array($grade, $passes);
+}
+?>
